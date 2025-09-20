@@ -1,5 +1,5 @@
 [package]
-name = "rpi_web_server"
+name = "pi-home-dashboard"
 version = "0.1.0"
 authors = ["Marwan SMOUNI <marwan-smouni@hotmail.fr>"]
 description = "A simple web server for Raspberry Pi"

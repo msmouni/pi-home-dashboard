@@ -5,7 +5,7 @@ use serde::Serialize;
 use tokio::fs;
 
 const DB_FILE: &str = "/var/lib/rpi_sensors_data/data.db";
-const RPI_WEB_APP_RES: &str = "/usr/share/rpi_web_app/templates";
+const PI_HOME_DASHBOARD_RES: &str = "/usr/share/pi-home-dashboard/templates";
 
 #[derive(Serialize)]
 struct SensorData {
@@ -36,7 +36,7 @@ async fn main() {
 }
 
 async fn index() -> Html<String> {
-    let html = fs::read_to_string(format!("{RPI_WEB_APP_RES}/index.html"))
+    let html = fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/index.html"))
         .await
         .unwrap();
     Html(html)
