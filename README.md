@@ -1,1 +1,1 @@
-# pi-home-dashboard
+# pi_home_dashboard
