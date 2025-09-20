@@ -4,7 +4,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 use tokio::fs;
 
-const DB_FILE: &str = "/var/lib/rpi_sensors_data/data.db";
+const DB_FILE: &str = "/var/lib/pi-home-sensors_data/data.db";
 const PI_HOME_DASHBOARD_RES: &str = "/usr/share/pi-home-dashboard/templates";
 
 #[derive(Serialize)]
