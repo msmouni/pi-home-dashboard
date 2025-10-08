@@ -1,11 +1,43 @@
-use axum::{response::Html, routing::get, Json, Router};
+use axum::{
+    extract::{Form, State},
+    response::{Html, Redirect},
+    routing::{get, post},
+    Json, Router,
+};
+use axum_extra::extract::CookieJar;
 use reqwest;
 use rusqlite::Connection;
+use serde::Deserialize;
 use serde::Serialize;
-use tokio::fs;
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+    time::SystemTime,
+};
+use uuid::Uuid;
 
 const DB_FILE: &str = "/var/lib/pi-home-sensors_data/data.db";
 const PI_HOME_DASHBOARD_RES: &str = "/usr/share/pi-home-dashboard/templates";
+
+const SESSION_TIMEOUT_SECS: u64 = 300; // 5 minutes
+
+#[derive(Clone, Debug)]
+struct UserSession {
+    username: String,
+    session_start: SystemTime,
+}
+
+#[derive(Clone)]
+struct AppState {
+    sessions: Arc<Mutex<HashMap<String, UserSession>>>, // session_id → UserSession
+}
+
+#[derive(Deserialize)]
+struct LoginForm {
+    username: String,
+    password: String,
+}
 
 #[derive(Serialize)]
 struct SensorData {
@@ -25,21 +57,38 @@ struct Weather {
 
 #[tokio::main]
 async fn main() {
+    let state = AppState {
+        sessions: Arc::new(Mutex::new(HashMap::new())),
+    };
+
     let app = Router::new()
         .route("/", get(index))
         .route("/data", get(get_data))
-        .route("/external-weather", get(external_weather));
+        .route("/external-weather", get(external_weather))
+        .route("/login", get(show_login).post(handle_login))
+        .with_state(state);
 
     // Run app, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn index() -> Html<String> {
-    let html = fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/index.html"))
-        .await
-        .unwrap();
-    Html(html)
+async fn index(State(state): State<AppState>, jar: CookieJar) -> Html<String> {
+    if let Some(session_id) = jar.get("session_id") {
+        let sessions = state.sessions.lock().unwrap();
+        if let Some(user_session) = sessions.get(session_id.value()) {
+            if user_session.session_start.elapsed().unwrap().as_secs() > SESSION_TIMEOUT_SECS {
+                state.sessions.lock().unwrap().remove(session_id.value());
+                return Html("<h1>Session expired. <a href='/login'>Login again</a></h1>".into());
+            } else {
+                let html =
+                    std::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/index.html")).unwrap();
+                return Html(html);
+            }
+        }
+    }
+
+    Html("<h1>You are not logged in. <a href='/login'>Login</a></h1>".into())
 }
 
 async fn get_data() -> Json<Vec<SensorData>> {
@@ -95,4 +144,44 @@ async fn external_weather() -> Json<Weather> {
         external_windspeed: 0.0,
         external_time: "N/A".to_string(),
     })
+}
+
+async fn show_login() -> Html<&'static str> {
+    Html(
+        r#"
+        <form action="/login" method="post">
+            Username: <input name="username"><br>
+            Password: <input type="password" name="password"><br>
+            <button type="submit">Login</button>
+        </form>
+    "#,
+    )
+}
+
+async fn handle_login(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Form(form): Form<LoginForm>,
+) -> (CookieJar, Redirect) {
+    // TODO: replace with DB check
+    if form.username == "admin" && form.password == "raspberry" {
+        let session_id = Uuid::new_v4().to_string();
+
+        state.sessions.lock().unwrap().insert(
+            session_id.clone(),
+            UserSession {
+                username: form.username,
+                session_start: SystemTime::now(),
+            },
+        );
+
+        let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
+            "session_id",
+            session_id,
+        ));
+
+        (jar, Redirect::to("/"))
+    } else {
+        (jar, Redirect::to("/login"))
+    }
 }
