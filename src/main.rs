@@ -146,16 +146,11 @@ async fn external_weather() -> Json<Weather> {
     })
 }
 
-async fn show_login() -> Html<&'static str> {
-    Html(
-        r#"
-        <form action="/login" method="post">
-            Username: <input name="username"><br>
-            Password: <input type="password" name="password"><br>
-            <button type="submit">Login</button>
-        </form>
-    "#,
-    )
+async fn show_login() -> Html<String> {
+    let html = tokio::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/login.html"))
+        .await
+        .unwrap_or_else(|_| "<h1>Login page missing</h1>".into());
+    Html(html)
 }
 
 async fn handle_login(
