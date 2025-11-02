@@ -94,12 +94,19 @@ async fn index(State(state): State<AppState>, jar: CookieJar) -> impl IntoRespon
             .unwrap();
         Html(html).into_response()
     } else {
-        Html(
+        let mut response = Html(
             tokio::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/not_logged_in.html"))
                 .await
                 .unwrap(),
         )
-        .into_response()
+        .into_response();
+
+        response.headers_mut().insert(
+            CACHE_CONTROL,
+            "no-cache, no-store, must-revalidate".parse().unwrap(),
+        );
+
+        response
     }
 }
 
@@ -174,10 +181,17 @@ async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl IntoR
     if verify_session(state, jar).await {
         Redirect::to("/").into_response()
     } else {
-        tokio::fs::read_to_string("{PI_HOME_DASHBOARD_RES}/login.html")
+        let html = tokio::fs::read_to_string("{PI_HOME_DASHBOARD_RES}/login.html")
         .await
-            .unwrap_or_else(|_| "<h1>Login page missing</h1>".into())
-            .into_response()
+            .unwrap_or_else(|_| "<h1>Login page missing</h1>".into());
+        let mut response = Html(html).into_response();
+
+        response.headers_mut().insert(
+            CACHE_CONTROL,
+            "no-cache, no-store, must-revalidate".parse().unwrap(),
+        );
+
+        response
 }
 }
 async fn handle_login(
