@@ -22,6 +22,7 @@ const SESSION_TIMEOUT_SECS: u64 = 300; // 5 minutes
 
 #[derive(Clone, Debug)]
 struct UserSession {
+    #[allow(dead_code)]
     username: String,
     session_start: SystemTime,
 }
@@ -183,7 +184,7 @@ async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl IntoR
         Redirect::to("/").into_response()
     } else {
         let html = tokio::fs::read_to_string("{PI_HOME_DASHBOARD_RES}/login.html")
-        .await
+            .await
             .unwrap_or_else(|_| "<h1>Login page missing</h1>".into());
         let mut response = Html(html).into_response();
 
@@ -193,7 +194,7 @@ async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl IntoR
         );
 
         response
-}
+    }
 }
 async fn handle_login(
     State(state): State<AppState>,
