@@ -219,6 +219,6 @@ async fn handle_login(
 
         (jar, Redirect::to("/"))
     } else {
-        (jar, Redirect::to("/login"))
+        (jar, Redirect::to("/login?error=1"))
     }
 }

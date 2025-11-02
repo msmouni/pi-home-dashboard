@@ -14,6 +14,11 @@
         🔒 Pi Home Dashboard
       </h1>
 
+      <!-- Hidden error message -->
+      <div id="error-message" class="text-red-500 text-sm mb-3 hidden">
+        Invalid username or password
+      </div>
+
       <form action="/login" method="post" class="space-y-5">
         <div>
           <label
@@ -55,5 +60,13 @@
         </button>
       </form>
     </div>
+
+    <script>
+      // When the page loads, check if the URL has ?error=1
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("error") === "1") {
+        document.getElementById("error-message").classList.remove("hidden");
+      }
+    </script>
   </body>
 </html>
