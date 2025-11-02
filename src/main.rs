@@ -64,6 +64,7 @@ async fn main() {
         .route("/data", get(get_data))
         .route("/external-weather", get(external_weather))
         .route("/login", get(show_login).post(handle_login))
+        .route("/logout", get(logout))
         .with_state(state);
 
     // Run app, listening globally on port 3000
@@ -221,4 +222,19 @@ async fn handle_login(
     } else {
         (jar, Redirect::to("/login?error=1"))
     }
+}
+
+async fn logout(State(state): State<AppState>, jar: CookieJar) -> (CookieJar, Redirect) {
+    if let Some(session_cookie) = jar.get("session_id") {
+        let session_id = session_cookie.value().to_string();
+        state.sessions.lock().unwrap().remove(&session_id);
+    }
+
+    // Expire cookie immediately
+    let expired = Cookie::build(("session_id", ""))
+        .path("/")
+        .max_age(time::Duration::seconds(0));
+
+    let jar = jar.add(expired);
+    (jar, Redirect::to("/login"))
 }
