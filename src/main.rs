@@ -197,10 +197,11 @@ async fn handle_login(
             },
         );
 
-        let jar = jar.add(axum_extra::extract::cookie::Cookie::new(
-            "session_id",
-            session_id,
-        ));
+        let cookie = Cookie::build(("session_id", session_id.clone()))
+            .max_age(time::Duration::seconds(SESSION_TIMEOUT_SECS as i64))
+            .http_only(true); // more secure: not accessible from JS
+
+        let jar = jar.add(cookie);
 
         (jar, Redirect::to("/"))
     } else {
