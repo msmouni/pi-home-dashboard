@@ -1,17 +1,15 @@
 use axum::{
     extract::{Form, State},
-    response::{Html, Redirect},
-    routing::{get, post},
+    response::{Html, IntoResponse, Redirect},
+    routing::get,
     Json, Router,
 };
-use axum_extra::extract::CookieJar;
-use reqwest;
+use axum_extra::extract::{cookie::Cookie, CookieJar};
+use reqwest::{self, header::CACHE_CONTROL};
 use rusqlite::Connection;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    net::SocketAddr,
     sync::{Arc, Mutex},
     time::SystemTime,
 };
@@ -73,25 +71,43 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn index(State(state): State<AppState>, jar: CookieJar) -> Html<String> {
+async fn verify_session(state: AppState, jar: CookieJar) -> bool {
     if let Some(session_id) = jar.get("session_id") {
         let sessions = state.sessions.lock().unwrap();
         if let Some(user_session) = sessions.get(session_id.value()) {
             if user_session.session_start.elapsed().unwrap().as_secs() > SESSION_TIMEOUT_SECS {
                 state.sessions.lock().unwrap().remove(session_id.value());
-                return Html("<h1>Session expired. <a href='/login'>Login again</a></h1>".into());
+                return false;
             } else {
-                let html =
-                    std::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/index.html")).unwrap();
-                return Html(html);
+                return true;
             }
         }
     }
 
-    Html("<h1>You are not logged in. <a href='/login'>Login</a></h1>".into())
+    false
 }
 
-async fn get_data() -> Json<Vec<SensorData>> {
+async fn index(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
+    if verify_session(state, jar).await {
+        let html = tokio::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/index.html"))
+            .await
+            .unwrap();
+        Html(html).into_response()
+    } else {
+        Html(
+            tokio::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/not_logged_in.html"))
+                .await
+                .unwrap(),
+        )
+        .into_response()
+    }
+}
+
+async fn get_data(State(state): State<AppState>, jar: CookieJar) -> Json<Vec<SensorData>> {
+    if !verify_session(state, jar).await {
+        return Json(Vec::new());
+    }
+
     let conn = Connection::open(DB_FILE).unwrap();
     let mut sensors = Vec::new();
 
@@ -119,7 +135,15 @@ async fn get_data() -> Json<Vec<SensorData>> {
     Json(sensors)
 }
 
-async fn external_weather() -> Json<Weather> {
+async fn external_weather(State(state): State<AppState>, jar: CookieJar) -> Json<Weather> {
+    if !verify_session(state, jar).await {
+        return Json(Weather {
+            external_temp: 0.0,
+            external_windspeed: 0.0,
+            external_time: "N/A".to_string(),
+        });
+    }
+
     let url =
         "https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&current_weather=true";
 
@@ -146,13 +170,16 @@ async fn external_weather() -> Json<Weather> {
     })
 }
 
-async fn show_login() -> Html<String> {
-    let html = tokio::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/login.html"))
+async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl IntoResponse {
+    if verify_session(state, jar).await {
+        Redirect::to("/").into_response()
+    } else {
+        tokio::fs::read_to_string("{PI_HOME_DASHBOARD_RES}/login.html")
         .await
-        .unwrap_or_else(|_| "<h1>Login page missing</h1>".into());
-    Html(html)
+            .unwrap_or_else(|_| "<h1>Login page missing</h1>".into())
+            .into_response()
 }
-
+}
 async fn handle_login(
     State(state): State<AppState>,
     jar: CookieJar,
