@@ -2,9 +2,15 @@ mod routes;
 
 use crate::{
     state::AppState,
-    web::routes::{external_weather, get_data, handle_login, index, logout, show_login},
+    web::routes::{
+        external_weather, get_data, handle_login, index, logout, show_login, zigbee_get_devices,
+        zigbee_permit_join, zigbee_toggle,
+    },
 };
-use axum::{routing::get, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use std::io::Error;
 use tokio::net::TcpListener;
 
@@ -15,11 +21,12 @@ pub struct App {
     pub listener: TcpListener,
 }
 
-pub async fn get_app() -> Result<App, Error> {
-    let state = AppState::default();
-
+pub async fn get_app(state: AppState) -> Result<App, Error> {
     let service = Router::new()
         .route("/", get(index))
+        .route("/zigbee/devices", get(zigbee_get_devices))
+        .route("/zigbee/permit_join", get(zigbee_permit_join))
+        .route("/zigbee/{id}/toggle", post(zigbee_toggle))
         .route("/data", get(get_data))
         .route("/external-weather", get(external_weather))
         .route("/login", get(show_login).post(handle_login))

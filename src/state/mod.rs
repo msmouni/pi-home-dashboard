@@ -1,5 +1,7 @@
 pub(crate) mod session;
 
+use crate::zigbee::PlugDevice;
+use rumqttc::AsyncClient;
 use session::UserSession;
 use std::{
     collections::HashMap,
@@ -8,9 +10,12 @@ use std::{
 };
 use uuid::Uuid;
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct AppState {
     sessions: Arc<Mutex<HashMap<String, UserSession>>>, // session_id → UserSession
+
+    pub mqtt_client: Arc<Mutex<Option<AsyncClient>>>,
+    pub zigbee_devices: Arc<Mutex<HashMap<String, PlugDevice>>>, // device_id → Device
 }
 
 pub fn state_try_login(
