@@ -38,11 +38,11 @@
           .then((response) => response.json())
           .then((data) => {
             document.getElementById("external-weather").innerHTML = `
-                        <strong>External Weather:</strong><br>
-            🌡️ ${data.external_temp} °C<br>
-            💨 ${data.external_windspeed} km/h<br>
-            🕒 ${data.external_time}
-                    `;
+                              <strong>External Weather:</strong><br>
+                  🌡️ ${data.external_temp} °C<br>
+                  💨 ${data.external_windspeed} km/h<br>
+                  🕒 ${data.external_time}
+                          `;
           });
       }
 
@@ -99,29 +99,29 @@
 
         devices.forEach((device) => {
           container.innerHTML += `
-          <div class="bg-gray-700 rounded-lg p-4 shadow">
-            <div class="flex justify-between items-center mb-2">
-              <h5 class="text-lg font-bold">${device.name}</h5>
+                <div class="bg-gray-700 rounded-lg p-4 shadow">
+                  <div class="flex justify-between items-center mb-2">
+                    <h5 class="text-lg font-bold">${device.name}</h5>
 
-              <button
-                onclick="toggleDevice('${device.id}')"
-                class="${
-                  device.state
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-red-600 hover:bg-red-700"
-                } text-white px-3 py-1 rounded"
-              >
-                ${device.state ? "ON" : "OFF"}
-              </button>
-            </div>
+                    <button
+                      onclick="toggleDevice('${device.id}')"
+                      class="${
+                        device.state
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "bg-green-600 hover:bg-green-700"
+                      } text-white px-3 py-1 rounded"
+                    >
+                      ${device.state ? "TURN OFF" : "TURN ON"}
+                    </button>
+                  </div>
 
-            <div class="space-y-1 text-sm text-gray-300">
-              <p>⚡ Power: ${device.power} W</p>
-              <p>🔌 Voltage: ${device.voltage} V</p>
-              <p>🔋 Current: ${(device.current / 100).toFixed(2)} A</p>
-            </div>
-          </div>
-        `;
+                  <div class="space-y-1 text-sm text-gray-300">
+                    <p>⚡ Power: ${device.power} W</p>
+                    <p>🔌 Voltage: ${device.voltage} V</p>
+                    <p>🔋 Current: ${(device.current / 100).toFixed(2)} A</p>
+                  </div>
+                </div>
+              `;
         });
       }
 
@@ -131,6 +131,54 @@
         });
 
         fetchZigbeeDevices();
+      }
+
+      async function refreshDevices() {
+        const status = document.getElementById("zigbee-status");
+
+        status.innerText = "Refreshing devices...";
+
+        try {
+          const response = await fetch("/zigbee/refresh", {
+            method: "POST",
+          });
+
+          const text = await response.text();
+
+          status.innerText = text;
+
+          fetchZigbeeDevices();
+        } catch (err) {
+          status.innerText = "Failed to refresh devices";
+        }
+
+        // Clear message after 5 seconds
+        setTimeout(() => {
+          status.innerText = "";
+        }, 5000);
+      }
+
+      async function permitJoin() {
+        const status = document.getElementById("zigbee-status");
+
+        status.innerText = "Enabling permit join...";
+
+        try {
+          const response = await fetch("/zigbee/permit_join", {
+            method: "POST",
+          });
+
+          const text = await response.text();
+
+          status.innerText = text;
+        } catch (err) {
+          status.innerText = "Failed to enable permit join";
+        }
+
+        // Clear message after 5 seconds
+        setTimeout(() => {
+          status.innerText = "";
+        }, 5000);
       }
     </script>
   </head>
@@ -164,8 +212,32 @@
 
       <!-- Zigbee Devices -->
       <div class="bg-gray-800 rounded-lg shadow-lg p-4">
-        <h4 class="text-xl font-semibold mb-4 text-cyan-300">Zigbee Devices</h4>
+        <div class="flex justify-between items-center mb-4">
+          <h4 class="text-xl font-semibold text-cyan-300">Zigbee Devices</h4>
 
+          <div class="flex gap-2">
+            <!-- Refresh devices -->
+            <button
+              onclick="refreshDevices()"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition"
+            >
+              Refresh Devices
+            </button>
+
+            <!-- Permit join -->
+            <button
+              onclick="permitJoin()"
+              class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg transition"
+            >
+              Permit Join
+            </button>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div id="zigbee-status" class="text-sm text-gray-300 mb-4"></div>
+
+        <!-- Devices -->
         <div
           id="zigbee-devices"
           class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"

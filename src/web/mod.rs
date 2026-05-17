@@ -4,7 +4,7 @@ use crate::{
     state::AppState,
     web::routes::{
         external_weather, get_data, handle_login, index, logout, show_login, zigbee_get_devices,
-        zigbee_permit_join, zigbee_toggle,
+        zigbee_permit_join, zigbee_refresh, zigbee_toggle,
     },
 };
 use axum::{
@@ -25,7 +25,8 @@ pub async fn get_app(state: AppState) -> Result<App, Error> {
     let service = Router::new()
         .route("/", get(index))
         .route("/zigbee/devices", get(zigbee_get_devices))
-        .route("/zigbee/permit_join", get(zigbee_permit_join))
+        .route("/zigbee/refresh", post(zigbee_refresh))
+        .route("/zigbee/permit_join", post(zigbee_permit_join))
         .route("/zigbee/{id}/toggle", post(zigbee_toggle))
         .route("/data", get(get_data))
         .route("/external-weather", get(external_weather))

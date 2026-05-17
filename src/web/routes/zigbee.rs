@@ -33,10 +33,33 @@ pub async fn zigbee_permit_join(State(state): State<AppState>, jar: CookieJar) -
     let opt_client = state.mqtt_client.lock().unwrap().clone();
 
     if let Some(client) = opt_client {
-        crate::zigbee::permit_join(&client).await;
-        "Permit join enabled for 60 seconds"
+        let result = crate::zigbee::permit_join(&client).await;
+        match result {
+            Ok(_) => "Permit join enabled for 60 seconds",
+            Err(_) => "Failed to enable permit join",
+        }
     } else {
         "MQTT client not initialized"
+    }
+}
+
+pub async fn zigbee_refresh(State(state): State<AppState>, jar: CookieJar) -> &'static str {
+    if !verify_session(&state, jar) {
+        return "Unauthorized";
+    }
+
+    let client = state.mqtt_client.lock().unwrap().clone();
+
+    match client {
+        Some(client) => {
+            let result = crate::zigbee::request_devices(&client).await;
+
+            match result {
+                Ok(_) => "Device refresh requested",
+                Err(_) => "Failed to refresh devices",
+            }
+        }
+        None => "MQTT client not initialized",
     }
 }
 
