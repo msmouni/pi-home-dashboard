@@ -2,7 +2,7 @@ use crate::state::{
     session::{verify_session, SESSION_TIMEOUT_SECS},
     state_logout, state_try_login, AppState,
 };
-use crate::web::routes::PI_HOME_DASHBOARD_RES;
+use crate::web::routes::PI_HOME_DASHBOARD_TEMPLATES;
 use axum::{
     extract::State,
     response::{Html, IntoResponse, Redirect},
@@ -22,7 +22,7 @@ pub async fn show_login(State(state): State<AppState>, jar: CookieJar) -> impl I
     if verify_session(&state, jar) {
         Redirect::to("/").into_response()
     } else {
-        let html = tokio::fs::read_to_string(format!("{PI_HOME_DASHBOARD_RES}/login.html"))
+        let html = tokio::fs::read_to_string(format!("{PI_HOME_DASHBOARD_TEMPLATES}/login.html"))
             .await
             .unwrap_or_else(|_| "<h1>Login page missing</h1>".into());
         let mut response = Html(html).into_response();
