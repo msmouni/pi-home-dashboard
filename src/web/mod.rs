@@ -4,7 +4,7 @@ use crate::{
     state::AppState,
     web::routes::{
         external_weather, get_data, handle_login, index, logout, show_login, zigbee_get_devices,
-        zigbee_permit_join, zigbee_refresh, zigbee_toggle,
+        zigbee_permit_join, zigbee_refresh, zigbee_toggle, PI_HOME_DASHBOARD_STATIC,
     },
 };
 use axum::{
@@ -13,6 +13,7 @@ use axum::{
 };
 use std::io::Error;
 use tokio::net::TcpListener;
+use tower_http::services::ServeDir;
 
 const PI_HOME_DASHBOARD_PORT: u16 = 3000;
 
@@ -32,6 +33,7 @@ pub async fn get_app(state: AppState) -> Result<App, Error> {
         .route("/external-weather", get(external_weather))
         .route("/login", get(show_login).post(handle_login))
         .route("/logout", get(logout))
+        .nest_service("/static", ServeDir::new(PI_HOME_DASHBOARD_STATIC))
         .with_state(state);
 
     // Run app, listening globally on port PI_HOME_DASHBOARD_PORT

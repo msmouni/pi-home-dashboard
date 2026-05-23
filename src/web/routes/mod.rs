@@ -10,4 +10,5 @@ pub use index::index;
 pub use weather::external_weather;
 pub use zigbee::{zigbee_get_devices, zigbee_permit_join, zigbee_refresh, zigbee_toggle};
 
-const PI_HOME_DASHBOARD_RES: &str = "/usr/share/pi-home-dashboard/templates";
+const PI_HOME_DASHBOARD_TEMPLATES: &str = "/usr/share/pi-home-dashboard/templates";
+pub(super) const PI_HOME_DASHBOARD_STATIC: &str = "/usr/share/pi-home-dashboard/static";
