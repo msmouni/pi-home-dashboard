@@ -1,18 +1,20 @@
 use rusqlite::Connection;
 use serde::Serialize;
 
+#[allow(dead_code)]
 const DB_FILE: &str = "/var/lib/pi-home-sensors_data/data.db";
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug, Default, Clone)]
 pub struct SensorData {
-    timestamp: String,
-    bmp280_temp: f32,
-    bmp280_pressure: f32,
-    htu21d_temp: f32,
-    htu21d_humidity: f32,
+    pub timestamp: String,
+    pub bmp280_temp: f32,
+    pub bmp280_pressure: f32,
+    pub htu21d_temp: f32,
+    pub htu21d_humidity: f32,
 }
 
-pub fn get_sensors_data() -> Vec<SensorData> {
+#[allow(dead_code)]
+pub fn get_sensors_data_from_db() -> Vec<SensorData> {
     let conn = Connection::open(DB_FILE).unwrap();
     let mut sensors = Vec::new();
 

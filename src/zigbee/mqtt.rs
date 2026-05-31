@@ -1,8 +1,9 @@
+use chrono::Local;
 use rumqttc::{AsyncClient, Event, MqttOptions, Packet, QoS};
 use serde_json::Value;
 use std::time::Duration;
 
-use crate::{state::AppState, zigbee::PlugDevice};
+use crate::{sensors::SensorData, state::AppState, zigbee::PlugDevice};
 
 const MQTT_BROKER: &str = "localhost";
 const MQTT_PORT: u16 = 1883;
@@ -137,6 +138,60 @@ fn handle_device_update(app_state: &AppState, device_id: &str, payload: &str) {
     }
 }
 
+fn handle_zigbee_devices(app_state: &AppState, topic: &str, payload: &str) {
+    // Device discovery topic - update device list
+    if topic == "zigbee2mqtt/bridge/devices" {
+        handle_bridge_devices(app_state, payload);
+        return;
+    }
+
+    // Ignore other bridge topics (states, logs ...)
+    if topic.starts_with("zigbee2mqtt/bridge/") {
+        return;
+    }
+
+    // Device update topic - update device state
+    let parts: Vec<&str> = topic.split('/').collect();
+    /*
+    Consider zigbee2mqtt/<device>
+    Ignore:
+        zigbee2mqtt/<device>/set
+        zigbee2mqtt/<device>/get
+        zigbee2mqtt/<device>/availability
+    */
+    if parts.len() == 2 && parts[0] == "zigbee2mqtt" {
+        let device_id = parts[1];
+
+        handle_device_update(app_state, device_id, payload);
+    }
+}
+
+fn handle_wifi_devices(app_state: &AppState, _device_id: &str, payload: &str) {
+    let Ok(json) = serde_json::from_str::<Value>(payload) else {
+        return;
+    };
+
+    app_state.sensor_data.lock().unwrap().push(SensorData {
+        timestamp: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        bmp280_temp: json
+            .get("bmp_temp")
+            .and_then(|bmp_temp| bmp_temp.as_f64())
+            .unwrap_or_default() as f32,
+        bmp280_pressure: json
+            .get("bmp_press")
+            .and_then(|bmp_pressure| bmp_pressure.as_f64())
+            .unwrap_or_default() as f32,
+        htu21d_temp: json
+            .get("htu_temp")
+            .and_then(|htu_temp| htu_temp.as_f64())
+            .unwrap_or_default() as f32,
+        htu21d_humidity: json
+            .get("htu_hum")
+            .and_then(|htu_humidity| htu_humidity.as_f64())
+            .unwrap_or_default() as f32,
+    });
+}
+
 pub async fn mqtt_setup(app_state: AppState) {
     let mut mqttoptions = MqttOptions::new("rust-client", MQTT_BROKER, MQTT_PORT);
 
@@ -145,8 +200,15 @@ pub async fn mqtt_setup(app_state: AppState) {
 
     let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
 
+    /* Subscribe to zigbee2mqtt sensors */
     client
         .subscribe("zigbee2mqtt/#", QoS::AtMostOnce)
+        .await
+        .unwrap();
+
+    /* Subscribe to WIFI/mqtt sensors */
+    client
+        .subscribe("sensors/#", QoS::AtMostOnce)
         .await
         .unwrap();
 
@@ -173,34 +235,22 @@ pub async fn mqtt_setup(app_state: AppState) {
         loop {
             match eventloop.poll().await {
                 Ok(Event::Incoming(Packet::Publish(p))) => {
-                    let topic = p.topic.clone();
+                    match p.topic {
+                        topic if topic.starts_with("zigbee2mqtt/") => {
+                            // handle Zigbee2MQTT messages
+                            let payload = String::from_utf8_lossy(&p.payload);
 
-                    let payload = String::from_utf8_lossy(&p.payload);
+                            handle_zigbee_devices(&app_state, &topic, &payload);
+                        }
 
-                    // Device discovery topic - update device list
-                    if topic == "zigbee2mqtt/bridge/devices" {
-                        handle_bridge_devices(&app_state, &payload);
-                        continue;
-                    }
+                        topic if topic.starts_with("sensors/") => {
+                            // handle ESP32 sensors
+                            let payload = String::from_utf8_lossy(&p.payload);
 
-                    // Ignore other bridge topics (states, logs ...)
-                    if topic.starts_with("zigbee2mqtt/bridge/") {
-                        continue;
-                    }
+                            handle_wifi_devices(&app_state, &topic, &payload);
+                        }
 
-                    // Device update topic - update device state
-                    let parts: Vec<&str> = topic.split('/').collect();
-                    /*
-                    Consider zigbee2mqtt/<device>
-                    Ignore:
-                        zigbee2mqtt/<device>/set
-                        zigbee2mqtt/<device>/get
-                        zigbee2mqtt/<device>/availability
-                    */
-                    if parts.len() == 2 && parts[0] == "zigbee2mqtt" {
-                        let device_id = parts[1];
-
-                        handle_device_update(&app_state, device_id, &payload);
+                        _ => {}
                     }
                 }
 

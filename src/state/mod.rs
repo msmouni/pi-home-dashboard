@@ -1,6 +1,6 @@
 pub(crate) mod session;
 
-use crate::zigbee::PlugDevice;
+use crate::{sensors::SensorData, utils::CircularBuffer, zigbee::PlugDevice};
 use rumqttc::AsyncClient;
 use session::UserSession;
 use std::{
@@ -10,12 +10,15 @@ use std::{
 };
 use uuid::Uuid;
 
+const SENSORS_HISTORY_CAPACITY: usize = 500;
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct AppState {
     sessions: Arc<Mutex<HashMap<String, UserSession>>>, // session_id → UserSession
 
     pub mqtt_client: Arc<Mutex<Option<AsyncClient>>>,
     pub zigbee_devices: Arc<Mutex<HashMap<String, PlugDevice>>>, // device_id → Device
+    pub sensor_data: Arc<Mutex<CircularBuffer<SensorData, SENSORS_HISTORY_CAPACITY>>>, // TODO: handle multiple sensors
 }
 
 pub fn state_try_login(
