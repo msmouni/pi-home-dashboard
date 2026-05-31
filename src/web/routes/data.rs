@@ -1,5 +1,5 @@
 use crate::{
-    sensors::{get_sensors_data, SensorData},
+    sensors::SensorData,
     state::{session::verify_session, AppState},
 };
 use axum::{extract::State, Json};
@@ -10,5 +10,13 @@ pub async fn get_data(State(state): State<AppState>, jar: CookieJar) -> Json<Vec
         return Json(Vec::new());
     }
 
-    Json(get_sensors_data())
+    Json(
+        state
+            .sensor_data
+            .lock()
+            .unwrap()
+            .clone()
+            .into_iter()
+            .collect(),
+    )
 }

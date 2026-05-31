@@ -1,5 +1,6 @@
 mod sensors;
 mod state;
+mod utils;
 mod weather;
 mod web;
 mod zigbee;
